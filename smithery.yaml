@@ -1,0 +1,31 @@
+# Smithery MCP Registry configuration: https://smithery.ai/docs/config
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      x402Network:
+        type: string
+        enum: ["base", "arbitrum"]
+        default: "base"
+        description: "Preferred USDC settlement network for x402 EIP-3009 authorizations (Base 8453 or Arbitrum 42161)."
+      x402PayerPrivateKey:
+        type: string
+        description: "Optional 0x-prefixed EVM private key held locally by the caller for automatic EIP-3009 USDC signing. Leave empty to run in free discovery + HTTP 402 quote mode."
+      baseUrl:
+        type: string
+        default: "https://x402-cerberus-worker.boxxon.workers.dev"
+        description: "Cerberus x402 Cloudflare Worker base URL."
+  commandFunction: |-
+    (config) => ({
+      command: "npx",
+      args: ["-y", "@boxxji/cerberus-x402-mcp"],
+      env: {
+        CERBERUS_X402_BASE_URL: config.baseUrl || "https://x402-cerberus-worker.boxxon.workers.dev",
+        X402_NETWORK: config.x402Network || "base",
+        ...(config.x402PayerPrivateKey ? { X402_PAYER_PRIVATE_KEY: config.x402PayerPrivateKey } : {})
+      }
+    })
+  exampleConfig:
+    x402Network: "base"
+    baseUrl: "https://x402-cerberus-worker.boxxon.workers.dev"

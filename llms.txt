@@ -1,0 +1,30 @@
+# Cerberus x402 MCP Server & SDK
+
+> Pay-per-call Web3 & AI supply-chain security edge API settled in Base (8453) & Arbitrum (42161) USDC via HTTP 402 + EIP-3009 `TransferWithAuthorization`, exposed natively to AI agents over Model Context Protocol (MCP) JSON-RPC 2.0 stdio and TypeScript SDK.
+
+## Live Service Endpoints
+- Base URL: https://x402-cerberus-worker.boxxon.workers.dev
+- Health (free): https://x402-cerberus-worker.boxxon.workers.dev/health
+- x402 Discovery Manifest (free): https://x402-cerberus-worker.boxxon.workers.dev/.well-known/x402.json
+- Repository: https://github.com/Boxxji/cerberus-x402-mcp
+
+## MCP Tools (`@boxxji/cerberus-x402-mcp`)
+- `cerberus_list_endpoints` (FREE): Discover live health, endpoints, schemas, and USDC pricing.
+- `cerberus_scan_repo` ($0.05 USDC — `POST /v1/cerberus/scan-repo`): 7-layer anti-honeypot, prompt-injection, suspicious binary, postinstall hook, obfuscation, drainer, and DLP secret scan.
+- `cerberus_token_risk` ($0.03 USDC — `POST /v1/onchain/token-risk`): Read-only EVM bytecode, EIP-1967 proxy implementation, opcode, and 4-byte selector risk scan (Ethereum, Base, Arbitrum, Optimism, Polygon).
+- `cerberus_sbom_audit` ($0.10 USDC — `POST /v1/sbom/audit`): CycloneDX 1.5 JSON SBOM generator + typosquatting, unpinned dependency, lifecycle hook, and license risk auditor (`package.json`, `requirements.txt`, `Cargo.toml`).
+- `cerberus_audit_solidity` ($0.15 USDC — `POST /v1/cerberus/audit-solidity`): 10-detector Solidity contest auditor (ERC-4626 inflation, oracle staleness, unchecked ERC-20, reentrancy, signature replay, tx.origin, delegatecall, precision loss, unprotected init/selfdestruct, fee-on-transfer) with Foundry `Test.sol` scaffolds.
+
+## Payment & Settlement (`Wallet 1 :: SI_Gemini`)
+- Protocol: HTTP 402 (`x402Version: 1`, `scheme: "exact"`, `EIP-3009 TransferWithAuthorization`)
+- Accepted EVM Networks & USDC Contracts:
+  - Base (`chainId: 8453`, `eip155:8453`): `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
+  - Arbitrum (`chainId: 42161`, `eip155:42161`): `0xaf88d065e77c8cC2239327C5EDb3A432268e5831`
+- Exclusive EVM Payout Address: `0x51E24000948150400166b40d486dB7b3C5b2C5A1`
+- Exclusive Solana Payout Address: `H8ckc19KdGFoCAXh1cGjQL4bGP75DdAvnRQMBpGypRQx`
+- Local-Only Signing: Supply `X402_PAYER_PRIVATE_KEY` locally on your machine to sign EIP-3009 authorizations automatically via `viem`; without a key, paid tools return structured HTTP 402 quotes.
+
+## Machine-Readable Manifests
+- [x402 Bazaar Listing](https://raw.githubusercontent.com/Boxxji/cerberus-x402-mcp/main/x402-bazaar.json)
+- [Smithery MCP Config](https://raw.githubusercontent.com/Boxxji/cerberus-x402-mcp/main/smithery.yaml)
+- [README](https://raw.githubusercontent.com/Boxxji/cerberus-x402-mcp/main/README.md)

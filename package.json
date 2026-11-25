@@ -1,0 +1,76 @@
+{
+  "name": "@boxxji/cerberus-x402-mcp",
+  "version": "1.0.0",
+  "description": "Public MCP (Model Context Protocol) server and TypeScript x402 EIP-3009 USDC client SDK for the Cerberus Web3 & AI supply-chain security edge API.",
+  "license": "MIT",
+  "type": "module",
+  "author": "Boxxji",
+  "homepage": "https://github.com/Boxxji/cerberus-x402-mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Boxxji/cerberus-x402-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Boxxji/cerberus-x402-mcp/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "x402",
+    "eip-3009",
+    "usdc",
+    "base",
+    "arbitrum",
+    "security",
+    "solidity-audit",
+    "sbom",
+    "cyclonedx",
+    "ai-agents",
+    "cerberus"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    },
+    "./mcp-server": {
+      "types": "./dist/mcp-server.d.ts",
+      "import": "./dist/mcp-server.js"
+    }
+  },
+  "bin": {
+    "cerberus-x402-mcp": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "smithery.yaml",
+    "x402-bazaar.json",
+    "llms.txt"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc && node -e \"const fs=require('node:fs'); fs.chmodSync('dist/cli.js', 0o755);\"",
+    "test": "node --import tsx --test test/mcp-client.test.ts",
+    "start": "node ./dist/cli.js",
+    "prepublishOnly": "npm run typecheck && npm run build && npm test"
+  },
+  "dependencies": {
+    "viem": "^2.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

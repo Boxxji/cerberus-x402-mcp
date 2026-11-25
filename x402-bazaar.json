@@ -1,0 +1,111 @@
+{
+  "schema": "https://x402.org/schemas/bazaar-v1.json",
+  "x402Version": 1,
+  "id": "boxxji-cerberus-x402",
+  "name": "Cerberus x402 Web3 & AI Supply-Chain Security API",
+  "version": "1.0.0",
+  "provider": "Boxxji",
+  "description": "Autonomous pay-per-call Web3 & AI supply-chain security edge API settled in Base (8453) & Arbitrum (42161) USDC via EIP-3009 TransferWithAuthorization. No API keys, no subscriptions.",
+  "homepage": "https://github.com/Boxxji/cerberus-x402-mcp",
+  "repository": "https://github.com/Boxxji/cerberus-x402-mcp",
+  "baseUrl": "https://x402-cerberus-worker.boxxon.workers.dev",
+  "healthUrl": "https://x402-cerberus-worker.boxxon.workers.dev/health",
+  "discoveryUrl": "https://x402-cerberus-worker.boxxon.workers.dev/.well-known/x402.json",
+  "mcp": {
+    "package": "@boxxji/cerberus-x402-mcp",
+    "transport": "stdio",
+    "command": "npx",
+    "args": ["-y", "@boxxji/cerberus-x402-mcp"],
+    "tools": [
+      "cerberus_list_endpoints",
+      "cerberus_scan_repo",
+      "cerberus_token_risk",
+      "cerberus_sbom_audit",
+      "cerberus_audit_solidity"
+    ]
+  },
+  "wallet": {
+    "alias": "Wallet 1 :: SI_Gemini",
+    "evmPayoutAddress": "0x51E24000948150400166b40d486dB7b3C5b2C5A1",
+    "solanaPayoutAddress": "H8ckc19KdGFoCAXh1cGjQL4bGP75DdAvnRQMBpGypRQx"
+  },
+  "settlement": {
+    "scheme": "exact",
+    "protocol": "eip-3009",
+    "headers": ["X-PAYMENT", "PAYMENT-SIGNATURE"],
+    "networks": [
+      {
+        "network": "base",
+        "chainId": 8453,
+        "caip2": "eip155:8453",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "symbol": "USDC",
+        "decimals": 6,
+        "payTo": "0x51E24000948150400166b40d486dB7b3C5b2C5A1"
+      },
+      {
+        "network": "arbitrum",
+        "chainId": 42161,
+        "caip2": "eip155:42161",
+        "asset": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+        "symbol": "USDC",
+        "decimals": 6,
+        "payTo": "0x51E24000948150400166b40d486dB7b3C5b2C5A1"
+      }
+    ]
+  },
+  "categories": [
+    "security",
+    "web3",
+    "solidity-audit",
+    "supply-chain",
+    "sbom",
+    "ai-agents"
+  ],
+  "endpoints": [
+    {
+      "id": "cerberus-scan-repo",
+      "mcpTool": "cerberus_scan_repo",
+      "method": "POST",
+      "path": "/v1/cerberus/scan-repo",
+      "resource": "https://x402-cerberus-worker.boxxon.workers.dev/v1/cerberus/scan-repo",
+      "priceUsd": "0.05",
+      "maxAmountRequired": "50000",
+      "currency": "USDC",
+      "description": "7-layer Cerberus anti-honeypot, prompt-injection, suspicious binary, postinstall shell-hook, obfuscation, drainer, and DLP secret scan for GitHub repos, files, or issue text."
+    },
+    {
+      "id": "onchain-token-risk",
+      "mcpTool": "cerberus_token_risk",
+      "method": "POST",
+      "path": "/v1/onchain/token-risk",
+      "resource": "https://x402-cerberus-worker.boxxon.workers.dev/v1/onchain/token-risk",
+      "priceUsd": "0.03",
+      "maxAmountRequired": "30000",
+      "currency": "USDC",
+      "description": "Live read-only EVM smart contract risk analyzer (eth_getCode, EIP-1967 proxy slot, SELFDESTRUCT/DELEGATECALL opcodes, 4-byte selectors)."
+    },
+    {
+      "id": "sbom-audit",
+      "mcpTool": "cerberus_sbom_audit",
+      "method": "POST",
+      "path": "/v1/sbom/audit",
+      "resource": "https://x402-cerberus-worker.boxxon.workers.dev/v1/sbom/audit",
+      "priceUsd": "0.10",
+      "maxAmountRequired": "100000",
+      "currency": "USDC",
+      "description": "Dependency manifest security auditor and CycloneDX 1.5 JSON SBOM generator for package.json, requirements.txt, and Cargo.toml."
+    },
+    {
+      "id": "cerberus-audit-solidity",
+      "mcpTool": "cerberus_audit_solidity",
+      "method": "POST",
+      "path": "/v1/cerberus/audit-solidity",
+      "resource": "https://x402-cerberus-worker.boxxon.workers.dev/v1/cerberus/audit-solidity",
+      "priceUsd": "0.15",
+      "maxAmountRequired": "150000",
+      "currency": "USDC",
+      "description": "10-detector Solidity static & invariant contest auditor with CWE/SWC tags and auto-generated Foundry forge-std/Test.sol PoC scaffolds."
+    }
+  ]
+}
