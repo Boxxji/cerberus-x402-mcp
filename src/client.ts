@@ -127,6 +127,8 @@ export interface X402HealthResponse {
   timestamp: string;
   nonceStoreBackend?: string;
   facilitatorConfigured?: boolean;
+  facilitatorUrl?: string;
+  requireSettlement?: boolean;
   wallet: {
     alias: string;
     exclusive?: boolean;
@@ -142,6 +144,8 @@ export interface X402HealthResponse {
       usdcContract: string;
     }>;
     discoveryManifest: string;
+    openApiSchema?: string;
+    llmsTxt?: string;
   };
 }
 
@@ -179,6 +183,69 @@ export interface DiscoveryResult {
   baseUrl: string;
   health: X402HealthResponse;
   manifest: X402DiscoveryManifest;
+}
+
+export interface LiveRouteCheck {
+  ok: boolean;
+  status: number;
+  url: string;
+  detail: string;
+}
+
+export interface VerifyLiveResult {
+  ok: boolean;
+  baseUrl: string;
+  checkedAt: string;
+  facilitatorConfigured: boolean;
+  facilitatorUrl: string | null;
+  requireSettlement: boolean;
+  walletVerified: boolean;
+  wallet: {
+    alias: string;
+    evmPayoutAddress: string;
+    solanaPayoutAddress: string;
+  } | null;
+  checks: {
+    health: LiveRouteCheck;
+    landing: LiveRouteCheck;
+    llmsTxt: LiveRouteCheck;
+    openApi: LiveRouteCheck;
+    x402Manifest: LiveRouteCheck;
+  };
+}
+
+export interface Eip3009PaymentRequirement {
+  network: string;
+  chainId: number | null;
+  caip2: string | null;
+  scheme: string;
+  asset: string;
+  amountMicroUsdc: string;
+  amountUsd: string;
+  payTo: string;
+  payToVerified: boolean;
+  maxTimeoutSeconds: number;
+  eip712Domain: {
+    name: string;
+    version: string;
+    chainId: number | null;
+    verifyingContract: string;
+  };
+}
+
+export interface X402QuoteDetails {
+  ok: true;
+  status: 402;
+  endpoint: string;
+  path: string;
+  x402Version: number;
+  walletAlias: string;
+  payTo: string;
+  solanaPayoutAddress: string;
+  priceUsd: string;
+  amountMicroUsdc: string;
+  eip3009Requirements: Eip3009PaymentRequirement[];
+  challenge: X402Challenge;
 }
 
 export type FetchLike = typeof fetch;
@@ -436,6 +503,311 @@ export async function discover(options: ClientBaseOptions = {}): Promise<Discove
   ])) as [X402HealthResponse, X402DiscoveryManifest];
 
   return { baseUrl, health, manifest };
+}
+
+const ENDPOINT_ALIASES: Record<string, string> = {
+  "scan-repo": CERBERUS_ENDPOINTS.scanRepo,
+  "cerberus-scan-repo": CERBERUS_ENDPOINTS.scanRepo,
+  "cerberus_scan_repo": CERBERUS_ENDPOINTS.scanRepo,
+  "scanrepo": CERBERUS_ENDPOINTS.scanRepo,
+  "token-risk": CERBERUS_ENDPOINTS.tokenRisk,
+  "onchain-token-risk": CERBERUS_ENDPOINTS.tokenRisk,
+  "cerberus_token_risk": CERBERUS_ENDPOINTS.tokenRisk,
+  "tokenrisk": CERBERUS_ENDPOINTS.tokenRisk,
+  "sbom-audit": CERBERUS_ENDPOINTS.sbomAudit,
+  "cerberus_sbom_audit": CERBERUS_ENDPOINTS.sbomAudit,
+  "sbomaudit": CERBERUS_ENDPOINTS.sbomAudit,
+  "audit-solidity": CERBERUS_ENDPOINTS.auditSolidity,
+  "cerberus-audit-solidity": CERBERUS_ENDPOINTS.auditSolidity,
+  "cerberus_audit_solidity": CERBERUS_ENDPOINTS.auditSolidity,
+  "auditsolidity": CERBERUS_ENDPOINTS.auditSolidity,
+};
+
+/**
+ * Resolve a short endpoint alias (e.g. `scan-repo`, `token-risk`, `sbom-audit`, `audit-solidity`)
+ * or full path (e.g. `/v1/cerberus/scan-repo`) into the canonical API path.
+ */
+export function resolveEndpointPath(endpointOrAlias: string): string {
+  const trimmed = endpointOrAlias.trim();
+  if (!trimmed) {
+    throw new Error(
+      "Endpoint is required (e.g. scan-repo, token-risk, sbom-audit, audit-solidity, or /v1/cerberus/scan-repo).",
+    );
+  }
+  const normalizedKey = trimmed.replace(/^\/+/, "").toLowerCase();
+  const aliasTarget = ENDPOINT_ALIASES[normalizedKey];
+  if (aliasTarget) {
+    return aliasTarget;
+  }
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
+/**
+ * Verify all live public discovery & health endpoints on the Cerberus x402 worker:
+ * - GET /health (including `facilitatorConfigured: true` & Wallet 1 :: SI_Gemini payout verification)
+ * - GET / (HTML landing page)
+ * - GET /llms.txt (AI crawler discovery text)
+ * - GET /openapi.json (OpenAPI 3.1.0 schema with all 4 paid endpoints)
+ * - GET /.well-known/x402.json (x402 v1 discovery manifest with Base & Arbitrum USDC)
+ */
+export async function verifyLive(options: ClientBaseOptions = {}): Promise<VerifyLiveResult> {
+  const baseUrl = normalizeBaseUrl(options.baseUrl);
+  const fetchFn = options.fetch ?? globalThis.fetch;
+
+  const healthUrl = `${baseUrl}/health`;
+  const landingUrl = `${baseUrl}/`;
+  const llmsUrl = `${baseUrl}/llms.txt`;
+  const openApiUrl = `${baseUrl}/openapi.json`;
+  const manifestUrl = `${baseUrl}/.well-known/x402.json`;
+
+  const [healthRes, landingRes, llmsRes, openApiRes, manifestRes] = await Promise.all([
+    fetchFn(healthUrl, { method: "GET", headers: { Accept: "application/json" } }),
+    fetchFn(landingUrl, { method: "GET", headers: { Accept: "text/html,*/*" } }),
+    fetchFn(llmsUrl, { method: "GET", headers: { Accept: "text/plain,*/*" } }),
+    fetchFn(openApiUrl, { method: "GET", headers: { Accept: "application/json" } }),
+    fetchFn(manifestUrl, { method: "GET", headers: { Accept: "application/json" } }),
+  ]);
+
+  let facilitatorConfigured = false;
+  let facilitatorUrl: string | null = null;
+  let requireSettlement = false;
+  let walletVerified = false;
+  let walletInfo: VerifyLiveResult["wallet"] = null;
+
+  let healthCheck: LiveRouteCheck;
+  if (healthRes.ok) {
+    const health = (await healthRes.json()) as Partial<X402HealthResponse>;
+    facilitatorConfigured = health.facilitatorConfigured === true;
+    facilitatorUrl = typeof health.facilitatorUrl === "string" ? health.facilitatorUrl : null;
+    requireSettlement = health.requireSettlement === true;
+    const evmMatch =
+      typeof health.wallet?.evmPayoutAddress === "string" &&
+      isTrustedPayTo(health.wallet.evmPayoutAddress);
+    const solMatch = health.wallet?.solanaPayoutAddress === SI_GEMINI_SOLANA_PAYOUT_ADDRESS;
+    walletVerified = evmMatch && solMatch;
+    if (health.wallet) {
+      walletInfo = {
+        alias: health.wallet.alias,
+        evmPayoutAddress: health.wallet.evmPayoutAddress,
+        solanaPayoutAddress: health.wallet.solanaPayoutAddress,
+      };
+    }
+    const ok = health.status === "ok" && facilitatorConfigured && walletVerified;
+    healthCheck = {
+      ok,
+      status: healthRes.status,
+      url: healthUrl,
+      detail: ok
+        ? `status=ok, facilitatorConfigured=true (${facilitatorUrl ?? "configured"}), wallet verified`
+        : `status=${String(health.status)}, facilitatorConfigured=${String(facilitatorConfigured)}, walletVerified=${String(walletVerified)}`,
+    };
+  } else {
+    healthCheck = {
+      ok: false,
+      status: healthRes.status,
+      url: healthUrl,
+      detail: `HTTP ${healthRes.status}`,
+    };
+  }
+
+  let landingCheck: LiveRouteCheck;
+  if (landingRes.ok) {
+    const html = await landingRes.text();
+    const isHtml = /<!doctype html|<html/i.test(html);
+    landingCheck = {
+      ok: isHtml && html.length > 0,
+      status: landingRes.status,
+      url: landingUrl,
+      detail: isHtml ? `HTML landing page (${html.length} bytes)` : "Response did not contain HTML",
+    };
+  } else {
+    landingCheck = {
+      ok: false,
+      status: landingRes.status,
+      url: landingUrl,
+      detail: `HTTP ${landingRes.status}`,
+    };
+  }
+
+  let llmsCheck: LiveRouteCheck;
+  if (llmsRes.ok) {
+    const text = await llmsRes.text();
+    const hasEndpoints =
+      text.includes("/v1/cerberus/scan-repo") && text.includes("/v1/cerberus/audit-solidity");
+    llmsCheck = {
+      ok: hasEndpoints,
+      status: llmsRes.status,
+      url: llmsUrl,
+      detail: hasEndpoints
+        ? `llms.txt valid (${text.length} bytes)`
+        : "llms.txt missing expected Cerberus endpoints",
+    };
+  } else {
+    llmsCheck = {
+      ok: false,
+      status: llmsRes.status,
+      url: llmsUrl,
+      detail: `HTTP ${llmsRes.status}`,
+    };
+  }
+
+  let openApiCheck: LiveRouteCheck;
+  if (openApiRes.ok) {
+    const spec = (await openApiRes.json()) as {
+      openapi?: string;
+      paths?: Record<string, unknown>;
+    };
+    const pathKeys = Object.keys(spec.paths ?? {});
+    const requiredPaths = Object.values(CERBERUS_ENDPOINTS);
+    const missing = requiredPaths.filter((p) => !pathKeys.includes(p));
+    const ok = typeof spec.openapi === "string" && spec.openapi.startsWith("3.") && missing.length === 0;
+    openApiCheck = {
+      ok,
+      status: openApiRes.status,
+      url: openApiUrl,
+      detail: ok
+        ? `OpenAPI ${spec.openapi} (${pathKeys.length} paths)`
+        : `OpenAPI ${String(spec.openapi ?? "unknown")}; missing paths: ${missing.join(", ") || "none"}`,
+    };
+  } else {
+    openApiCheck = {
+      ok: false,
+      status: openApiRes.status,
+      url: openApiUrl,
+      detail: `HTTP ${openApiRes.status}`,
+    };
+  }
+
+  let manifestCheck: LiveRouteCheck;
+  if (manifestRes.ok) {
+    const manifest = (await manifestRes.json()) as Partial<X402DiscoveryManifest>;
+    const endpoints = Array.isArray(manifest.endpoints) ? manifest.endpoints : [];
+    const allPinned =
+      endpoints.length >= 4 &&
+      endpoints.every(
+        (ep) =>
+          Array.isArray(ep.accepts) &&
+          ep.accepts.length >= 2 &&
+          ep.accepts.every((a) => isTrustedPayTo(a.payTo)),
+      );
+    const ok = manifest.x402Version === 1 && allPinned;
+    manifestCheck = {
+      ok,
+      status: manifestRes.status,
+      url: manifestUrl,
+      detail: ok
+        ? `x402 v1 manifest (${endpoints.length} endpoints, Base & Arbitrum USDC, payTo pinned)`
+        : `x402Version=${String(manifest.x402Version)}, endpoints=${endpoints.length}, payToPinned=${String(allPinned)}`,
+    };
+  } else {
+    manifestCheck = {
+      ok: false,
+      status: manifestRes.status,
+      url: manifestUrl,
+      detail: `HTTP ${manifestRes.status}`,
+    };
+  }
+
+  const allOk =
+    healthCheck.ok &&
+    landingCheck.ok &&
+    llmsCheck.ok &&
+    openApiCheck.ok &&
+    manifestCheck.ok;
+
+  return {
+    ok: allOk,
+    baseUrl,
+    checkedAt: new Date().toISOString(),
+    facilitatorConfigured,
+    facilitatorUrl,
+    requireSettlement,
+    walletVerified,
+    wallet: walletInfo,
+    checks: {
+      health: healthCheck,
+      landing: landingCheck,
+      llmsTxt: llmsCheck,
+      openApi: openApiCheck,
+      x402Manifest: manifestCheck,
+    },
+  };
+}
+
+/**
+ * Request a live HTTP 402 EIP-3009 USDC payment quote for a Cerberus endpoint without
+ * signing or spending any funds. Accepts endpoint aliases (`scan-repo`, `token-risk`,
+ * `sbom-audit`, `audit-solidity`) or full paths (`/v1/...`).
+ */
+export async function getQuote(
+  endpointOrAlias: string,
+  options: ClientBaseOptions = {},
+): Promise<X402QuoteDetails> {
+  const baseUrl = normalizeBaseUrl(options.baseUrl);
+  const path = resolveEndpointPath(endpointOrAlias);
+  const url = `${baseUrl}${path}`;
+  const fetchFn = options.fetch ?? globalThis.fetch;
+
+  const response = await fetchFn(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: "{}",
+  });
+
+  if (response.status !== 402) {
+    const bodyText = await response.text();
+    throw new Error(
+      `Expected HTTP 402 payment quote from ${url}, received HTTP ${response.status}: ${bodyText}`,
+    );
+  }
+
+  const challenge = await parseChallenge(response);
+  const primary = challenge.accepts[0];
+  const amountMicroUsdc = primary?.maxAmountRequired ?? "0";
+  const priceUsd = formatMicroUsdc(amountMicroUsdc);
+
+  const eip3009Requirements: Eip3009PaymentRequirement[] = challenge.accepts.map((accept) => {
+    const networkKey = accept.network.toLowerCase() as SupportedNetwork;
+    const knownConfig = SUPPORTED_NETWORKS[networkKey];
+    const chainId = accept.chainId ?? knownConfig?.chainId ?? null;
+    const caip2 = accept.caip2 ?? knownConfig?.caip2 ?? null;
+    return {
+      network: accept.network,
+      chainId,
+      caip2,
+      scheme: accept.scheme,
+      asset: accept.asset,
+      amountMicroUsdc: accept.maxAmountRequired,
+      amountUsd: formatMicroUsdc(accept.maxAmountRequired),
+      payTo: accept.payTo,
+      payToVerified: isTrustedPayTo(accept.payTo),
+      maxTimeoutSeconds: accept.maxTimeoutSeconds ?? 300,
+      eip712Domain: {
+        name: accept.extra?.name ?? knownConfig?.eip712Name ?? "USD Coin",
+        version: accept.extra?.version ?? knownConfig?.eip712Version ?? "2",
+        chainId,
+        verifyingContract: accept.asset,
+      },
+    };
+  });
+
+  return {
+    ok: true,
+    status: 402,
+    endpoint: url,
+    path,
+    x402Version: challenge.x402Version,
+    walletAlias: SI_GEMINI_WALLET_ALIAS,
+    payTo: SI_GEMINI_EVM_PAYOUT_ADDRESS,
+    solanaPayoutAddress: SI_GEMINI_SOLANA_PAYOUT_ADDRESS,
+    priceUsd,
+    amountMicroUsdc,
+    eip3009Requirements,
+    challenge,
+  };
 }
 
 /**
@@ -738,6 +1110,14 @@ export class CerberusX402Client {
 
   discover(): Promise<DiscoveryResult> {
     return discover({ baseUrl: this.baseUrl, fetch: this.fetchFn });
+  }
+
+  verifyLive(): Promise<VerifyLiveResult> {
+    return verifyLive({ baseUrl: this.baseUrl, fetch: this.fetchFn });
+  }
+
+  getQuote(endpointOrAlias: string): Promise<X402QuoteDetails> {
+    return getQuote(endpointOrAlias, { baseUrl: this.baseUrl, fetch: this.fetchFn });
   }
 
   callEndpoint<TResponse = unknown>(

@@ -1,11 +1,13 @@
-# Cerberus x402 MCP Server & SDK
+# Cerberus x402 MCP Server & SDK (v1.1.0)
 
-> Pay-per-call Web3 & AI supply-chain security edge API settled in Base (8453) & Arbitrum (42161) USDC via HTTP 402 + EIP-3009 `TransferWithAuthorization`, exposed natively to AI agents over Model Context Protocol (MCP) JSON-RPC 2.0 stdio and TypeScript SDK.
+> Pay-per-call Web3 & AI supply-chain security edge API settled in Base (8453) & Arbitrum (42161) USDC via HTTP 402 + EIP-3009 `TransferWithAuthorization` and PayAI Facilitator, exposed natively to AI agents over Model Context Protocol (MCP) JSON-RPC 2.0 stdio and TypeScript SDK.
 
 ## Live Service Endpoints
-- Base URL: https://x402-cerberus-worker.boxxon.workers.dev
-- Health (free): https://x402-cerberus-worker.boxxon.workers.dev/health
+- Base URL & Landing Page: https://x402-cerberus-worker.boxxon.workers.dev/
+- Health & Facilitator Status (free): https://x402-cerberus-worker.boxxon.workers.dev/health
 - x402 Discovery Manifest (free): https://x402-cerberus-worker.boxxon.workers.dev/.well-known/x402.json
+- OpenAPI 3.1.0 Schema (free): https://x402-cerberus-worker.boxxon.workers.dev/openapi.json
+- Live AI Crawler Document (free): https://x402-cerberus-worker.boxxon.workers.dev/llms.txt
 - Repository: https://github.com/Boxxji/cerberus-x402-mcp
 
 ## MCP Tools (`@boxxji/cerberus-x402-mcp`)
@@ -17,6 +19,7 @@
 
 ## Payment & Settlement (`Wallet 1 :: SI_Gemini`)
 - Protocol: HTTP 402 (`x402Version: 1`, `scheme: "exact"`, `EIP-3009 TransferWithAuthorization`)
+- On-Chain Facilitator: `https://facilitator.payai.network` (`facilitatorConfigured: true`)
 - Accepted EVM Networks & USDC Contracts:
   - Base (`chainId: 8453`, `eip155:8453`): `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
   - Arbitrum (`chainId: 42161`, `eip155:42161`): `0xaf88d065e77c8cC2239327C5EDb3A432268e5831`
@@ -24,7 +27,10 @@
 - Exclusive Solana Payout Address: `H8ckc19KdGFoCAXh1cGjQL4bGP75DdAvnRQMBpGypRQx`
 - Local-Only Signing: Supply `X402_PAYER_PRIVATE_KEY` locally on your machine to sign EIP-3009 authorizations automatically via `viem`; without a key, paid tools return structured HTTP 402 quotes.
 
-## Machine-Readable Manifests
+## Machine-Readable Manifests & Examples
+- [MCP Registry Manifest (`server.json`)](https://raw.githubusercontent.com/Boxxji/cerberus-x402-mcp/main/server.json)
 - [x402 Bazaar Listing](https://raw.githubusercontent.com/Boxxji/cerberus-x402-mcp/main/x402-bazaar.json)
 - [Smithery MCP Config](https://raw.githubusercontent.com/Boxxji/cerberus-x402-mcp/main/smithery.yaml)
+- [OpenAI Action Config](https://raw.githubusercontent.com/Boxxji/cerberus-x402-mcp/main/examples/openai-action.json)
+- [Claude Desktop / Cursor MCP Config](https://raw.githubusercontent.com/Boxxji/cerberus-x402-mcp/main/examples/claude-desktop-config.json)
 - [README](https://raw.githubusercontent.com/Boxxji/cerberus-x402-mcp/main/README.md)

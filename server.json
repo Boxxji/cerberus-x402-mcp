@@ -1,0 +1,64 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Boxxji/cerberus-x402-mcp",
+  "title": "Cerberus x402 Security MCP Server",
+  "description": "Pay-per-call Web3 & AI supply-chain security MCP server settled in Base & Arbitrum USDC via x402 EIP-3009 and PayAI.",
+  "version": "1.1.0",
+  "websiteUrl": "https://x402-cerberus-worker.boxxon.workers.dev/",
+  "repository": {
+    "url": "https://github.com/Boxxji/cerberus-x402-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@boxxji/cerberus-x402-mcp",
+      "version": "1.1.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "X402_NETWORK",
+          "description": "Preferred USDC settlement network ('base' for Base 8453 or 'arbitrum' for Arbitrum One 42161).",
+          "default": "base",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "X402_PAYER_PRIVATE_KEY",
+          "description": "Optional caller-supplied EVM private key used strictly locally to sign EIP-3009 USDC TransferWithAuthorization payloads. Omit for free discovery and HTTP 402 quote mode.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "CERBERUS_X402_BASE_URL",
+          "description": "Cerberus x402 Cloudflare Worker edge API base URL.",
+          "default": "https://x402-cerberus-worker.boxxon.workers.dev",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "io.github.Boxxji/x402": {
+      "protocolVersion": 1,
+      "scheme": "exact",
+      "facilitator": "https://facilitator.payai.network",
+      "endpoints": {
+        "baseUrl": "https://x402-cerberus-worker.boxxon.workers.dev",
+        "health": "https://x402-cerberus-worker.boxxon.workers.dev/health",
+        "x402Manifest": "https://x402-cerberus-worker.boxxon.workers.dev/.well-known/x402.json",
+        "openApi": "https://x402-cerberus-worker.boxxon.workers.dev/openapi.json",
+        "llmsTxt": "https://x402-cerberus-worker.boxxon.workers.dev/llms.txt"
+      },
+      "payout": {
+        "walletAlias": "Wallet 1 :: SI_Gemini",
+        "evm": "0x51E24000948150400166b40d486dB7b3C5b2C5A1",
+        "solana": "H8ckc19KdGFoCAXh1cGjQL4bGP75DdAvnRQMBpGypRQx"
+      }
+    }
+  }
+}

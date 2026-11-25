@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { PassThrough } from "node:stream";
 import { describe, it } from "node:test";
 import { getAddress, verifyTypedData } from "viem";
@@ -15,8 +16,11 @@ import {
   callEndpoint,
   checkTokenRisk,
   discover,
+  getQuote,
+  resolveEndpointPath,
   scanRepo,
   signEip3009Payment,
+  verifyLive,
   type FetchLike,
   type X402Challenge,
   type X402PaymentPayload,
@@ -488,17 +492,98 @@ describe("MCP JSON-RPC 2.0 Stdio Server", () => {
   });
 });
 
+describe("CLI Helpers, Quote Resolution, & Distribution Manifests", () => {
+  it("resolves short endpoint aliases and full paths for --quote", () => {
+    assert.equal(resolveEndpointPath("scan-repo"), CERBERUS_ENDPOINTS.scanRepo);
+    assert.equal(resolveEndpointPath("cerberus_scan_repo"), CERBERUS_ENDPOINTS.scanRepo);
+    assert.equal(resolveEndpointPath("token-risk"), CERBERUS_ENDPOINTS.tokenRisk);
+    assert.equal(resolveEndpointPath("sbom-audit"), CERBERUS_ENDPOINTS.sbomAudit);
+    assert.equal(resolveEndpointPath("audit-solidity"), CERBERUS_ENDPOINTS.auditSolidity);
+    assert.equal(resolveEndpointPath("/v1/cerberus/scan-repo"), CERBERUS_ENDPOINTS.scanRepo);
+    assert.throws(() => resolveEndpointPath("   "), /Endpoint is required/);
+  });
+
+  it("returns structured Base & Arbitrum EIP-3009 payment requirements from getQuote()", async () => {
+    const mockFetch: FetchLike = async (input) => {
+      const url = typeof input === "string" ? input : input.toString();
+      assert.equal(url, `${DEFAULT_BASE_URL}${CERBERUS_ENDPOINTS.scanRepo}`);
+      return new Response(
+        JSON.stringify(makeMockChallenge(CERBERUS_ENDPOINTS.scanRepo, "50000")),
+        { status: 402, headers: { "content-type": "application/json" } },
+      );
+    };
+
+    const quote = await getQuote("scan-repo", { fetch: mockFetch });
+    assert.equal(quote.ok, true);
+    assert.equal(quote.status, 402);
+    assert.equal(quote.path, "/v1/cerberus/scan-repo");
+    assert.equal(quote.priceUsd, "0.05");
+    assert.equal(quote.amountMicroUsdc, "50000");
+    assert.equal(quote.eip3009Requirements.length, 2);
+    assert.deepEqual(
+      quote.eip3009Requirements.map((r) => r.network).sort(),
+      ["arbitrum", "base"],
+    );
+    for (const req of quote.eip3009Requirements) {
+      assert.equal(req.payToVerified, true);
+      assert.equal(req.eip712Domain.name, "USD Coin");
+      assert.equal(req.eip712Domain.version, "2");
+    }
+  });
+
+  it("verifies server.json, package.json version alignment, and examples JSON manifests", () => {
+    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
+      name: string;
+      version: string;
+    };
+    const serverManifest = JSON.parse(
+      readFileSync(new URL("../server.json", import.meta.url), "utf8"),
+    ) as {
+      name: string;
+      version: string;
+      packages: Array<{ identifier: string; version: string }>;
+      _meta: { "io.github.Boxxji/x402": { endpoints: Record<string, string> } };
+    };
+    const openAiAction = JSON.parse(
+      readFileSync(new URL("../examples/openai-action.json", import.meta.url), "utf8"),
+    ) as { openapi_url: string };
+    const claudeConfig = JSON.parse(
+      readFileSync(new URL("../examples/claude-desktop-config.json", import.meta.url), "utf8"),
+    ) as { mcpServers: { "cerberus-x402": { command: string; args: string[] } } };
+
+    assert.equal(pkg.version, MCP_SERVER_VERSION);
+    assert.equal(serverManifest.version, pkg.version);
+    assert.equal(serverManifest.packages[0]?.identifier, pkg.name);
+    assert.equal(serverManifest.packages[0]?.version, pkg.version);
+    assert.equal(
+      serverManifest._meta["io.github.Boxxji/x402"].endpoints.openApi,
+      `${DEFAULT_BASE_URL}/openapi.json`,
+    );
+    assert.equal(
+      serverManifest._meta["io.github.Boxxji/x402"].endpoints.llmsTxt,
+      `${DEFAULT_BASE_URL}/llms.txt`,
+    );
+    assert.equal(openAiAction.openapi_url, `${DEFAULT_BASE_URL}/openapi.json`);
+    assert.equal(claudeConfig.mcpServers["cerberus-x402"].command, "npx");
+    assert.deepEqual(claudeConfig.mcpServers["cerberus-x402"].args, ["-y", pkg.name]);
+  });
+});
+
 describe("Live Read-Only Smoke Test (x402-cerberus-worker.boxxon.workers.dev)", () => {
   const skipLive = process.env.SKIP_LIVE_SMOKE === "1";
 
   it(
-    "verifies live /health, /.well-known/x402.json, Wallet 1 :: SI_Gemini payout, and all 4 endpoints",
+    "verifies live /health (facilitatorConfigured: true), /, /llms.txt, /openapi.json, /.well-known/x402.json, and all 4 endpoints",
     { skip: skipLive },
     async () => {
-      const discovery = await discover({ baseUrl: DEFAULT_BASE_URL });
+      const [discovery, liveVerification] = await Promise.all([
+        discover({ baseUrl: DEFAULT_BASE_URL }),
+        verifyLive({ baseUrl: DEFAULT_BASE_URL }),
+      ]);
 
       assert.equal(discovery.health.status, "ok");
       assert.equal(discovery.health.service, "x402-cerberus-worker");
+      assert.equal(discovery.health.facilitatorConfigured, true);
       assert.equal(
         discovery.health.wallet.evmPayoutAddress.toLowerCase(),
         SI_GEMINI_EVM_PAYOUT_ADDRESS.toLowerCase(),
@@ -507,6 +592,15 @@ describe("Live Read-Only Smoke Test (x402-cerberus-worker.boxxon.workers.dev)", 
         discovery.health.wallet.solanaPayoutAddress,
         SI_GEMINI_SOLANA_PAYOUT_ADDRESS,
       );
+
+      assert.equal(liveVerification.ok, true, JSON.stringify(liveVerification, null, 2));
+      assert.equal(liveVerification.facilitatorConfigured, true);
+      assert.equal(liveVerification.walletVerified, true);
+      assert.equal(liveVerification.checks.health.ok, true);
+      assert.equal(liveVerification.checks.landing.ok, true);
+      assert.equal(liveVerification.checks.llmsTxt.ok, true);
+      assert.equal(liveVerification.checks.openApi.ok, true);
+      assert.equal(liveVerification.checks.x402Manifest.ok, true);
 
       assert.equal(discovery.manifest.x402Version, 1);
       assert.equal(discovery.manifest.endpoints.length, 4);
@@ -531,18 +625,31 @@ describe("Live Read-Only Smoke Test (x402-cerberus-worker.boxxon.workers.dev)", 
         }
       }
 
-      // Verify unpaid POST returns live HTTP 402 quote without spending any funds
+      // Verify unpaid POST & getQuote() return live HTTP 402 quotes without spending any funds
       const prevKey = process.env.X402_PAYER_PRIVATE_KEY;
       delete process.env.X402_PAYER_PRIVATE_KEY;
       try {
-        const quote = await checkTokenRisk({
-          chain: "base",
-          address: SUPPORTED_NETWORKS.base.usdcContract,
-        });
-        assert.equal(quote.ok, false);
-        assert.equal(quote.status, 402);
-        assert.equal(quote.paymentRequired, true);
-        assert.equal(quote.challenge.accepts.length, 2);
+        const [tokenQuote, scanQuote] = await Promise.all([
+          checkTokenRisk({
+            chain: "base",
+            address: SUPPORTED_NETWORKS.base.usdcContract,
+          }),
+          getQuote("scan-repo"),
+        ]);
+
+        assert.equal(tokenQuote.ok, false);
+        assert.equal(tokenQuote.status, 402);
+        assert.equal(tokenQuote.paymentRequired, true);
+        assert.equal(tokenQuote.challenge.accepts.length, 2);
+
+        assert.equal(scanQuote.ok, true);
+        assert.equal(scanQuote.status, 402);
+        assert.equal(scanQuote.priceUsd, "0.05");
+        assert.equal(scanQuote.eip3009Requirements.length, 2);
+        assert.equal(
+          scanQuote.eip3009Requirements.every((r) => r.payToVerified),
+          true,
+        );
       } finally {
         if (prevKey !== undefined) {
           process.env.X402_PAYER_PRIVATE_KEY = prevKey;
@@ -551,3 +658,4 @@ describe("Live Read-Only Smoke Test (x402-cerberus-worker.boxxon.workers.dev)", 
     },
   );
 });
+

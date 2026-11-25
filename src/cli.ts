@@ -5,6 +5,8 @@ import {
   SI_GEMINI_SOLANA_PAYOUT_ADDRESS,
   SI_GEMINI_WALLET_ALIAS,
   discover,
+  getQuote,
+  verifyLive,
   type SupportedNetwork,
 } from "./client.js";
 import { MCP_SERVER_NAME, MCP_SERVER_VERSION, createMcpServer } from "./mcp-server.js";
@@ -18,10 +20,14 @@ function printHelp(): void {
       `for the live Cerberus Web3 & AI supply-chain security edge API (${DEFAULT_BASE_URL}).`,
       "",
       "Usage:",
-      "  cerberus-x402-mcp              Start MCP JSON-RPC 2.0 server on stdio",
-      "  cerberus-x402-mcp --discover   Query live /health and /.well-known/x402.json",
-      "  cerberus-x402-mcp --version    Print package version",
-      "  cerberus-x402-mcp --help       Show this help text",
+      "  cerberus-x402-mcp                     Start MCP JSON-RPC 2.0 server on stdio",
+      "  cerberus-x402-mcp --discover          Query live /health and /.well-known/x402.json",
+      "  cerberus-x402-mcp --verify-live       Verify live /health (facilitatorConfigured: true), /,",
+      "                                        /llms.txt, /openapi.json, and /.well-known/x402.json",
+      "  cerberus-x402-mcp --quote <endpoint>  Print live Base & Arbitrum EIP-3009 USDC quote",
+      "                                        (scan-repo | token-risk | sbom-audit | audit-solidity | /v1/...)",
+      "  cerberus-x402-mcp --version           Print package version",
+      "  cerberus-x402-mcp --help              Show this help text",
       "",
       "Environment Variables:",
       `  CERBERUS_X402_BASE_URL   API base URL (default: ${DEFAULT_BASE_URL})`,
@@ -35,6 +41,19 @@ function printHelp(): void {
       "",
     ].join("\n"),
   );
+}
+
+function extractFlagValue(args: string[], flag: string): string | null {
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (arg === flag) {
+      return args[i + 1] ?? "";
+    }
+    if (arg?.startsWith(`${flag}=`)) {
+      return arg.slice(flag.length + 1);
+    }
+  }
+  return null;
 }
 
 async function main(): Promise<void> {
@@ -55,6 +74,29 @@ async function main(): Promise<void> {
   if (args.includes("--discover")) {
     const result = await discover({ baseUrl });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return;
+  }
+
+  if (args.includes("--verify-live")) {
+    const result = await verifyLive({ baseUrl });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    if (!result.ok) {
+      process.exitCode = 1;
+    }
+    return;
+  }
+
+  const quoteTarget = extractFlagValue(args, "--quote");
+  if (quoteTarget !== null) {
+    if (!quoteTarget.trim()) {
+      process.stderr.write(
+        "Missing endpoint for --quote. Examples: --quote scan-repo | --quote token-risk | --quote sbom-audit | --quote audit-solidity | --quote /v1/cerberus/scan-repo\n",
+      );
+      process.exitCode = 1;
+      return;
+    }
+    const quote = await getQuote(quoteTarget, { baseUrl });
+    process.stdout.write(`${JSON.stringify(quote, null, 2)}\n`);
     return;
   }
 

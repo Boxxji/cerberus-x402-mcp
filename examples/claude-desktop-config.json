@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "cerberus-x402": {
+      "command": "npx",
+      "args": ["-y", "@boxxji/cerberus-x402-mcp"],
+      "env": {
+        "CERBERUS_X402_BASE_URL": "https://x402-cerberus-worker.boxxon.workers.dev",
+        "X402_NETWORK": "base",
+        "X402_PAYER_PRIVATE_KEY": ""
+      }
+    }
+  }
+}

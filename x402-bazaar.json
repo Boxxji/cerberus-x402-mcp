@@ -3,16 +3,19 @@
   "x402Version": 1,
   "id": "boxxji-cerberus-x402",
   "name": "Cerberus x402 Web3 & AI Supply-Chain Security API",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "provider": "Boxxji",
-  "description": "Autonomous pay-per-call Web3 & AI supply-chain security edge API settled in Base (8453) & Arbitrum (42161) USDC via EIP-3009 TransferWithAuthorization. No API keys, no subscriptions.",
+  "description": "Autonomous pay-per-call Web3 & AI supply-chain security edge API settled in Base (8453) & Arbitrum (42161) USDC via EIP-3009 TransferWithAuthorization and PayAI Facilitator. No API keys, no subscriptions.",
   "homepage": "https://github.com/Boxxji/cerberus-x402-mcp",
   "repository": "https://github.com/Boxxji/cerberus-x402-mcp",
   "baseUrl": "https://x402-cerberus-worker.boxxon.workers.dev",
   "healthUrl": "https://x402-cerberus-worker.boxxon.workers.dev/health",
   "discoveryUrl": "https://x402-cerberus-worker.boxxon.workers.dev/.well-known/x402.json",
+  "openApiUrl": "https://x402-cerberus-worker.boxxon.workers.dev/openapi.json",
+  "llmsTxtUrl": "https://x402-cerberus-worker.boxxon.workers.dev/llms.txt",
   "mcp": {
     "package": "@boxxji/cerberus-x402-mcp",
+    "registryManifest": "https://raw.githubusercontent.com/Boxxji/cerberus-x402-mcp/main/server.json",
     "transport": "stdio",
     "command": "npx",
     "args": ["-y", "@boxxji/cerberus-x402-mcp"],
@@ -32,6 +35,7 @@
   "settlement": {
     "scheme": "exact",
     "protocol": "eip-3009",
+    "facilitatorUrl": "https://facilitator.payai.network",
     "headers": ["X-PAYMENT", "PAYMENT-SIGNATURE"],
     "networks": [
       {

@@ -21,7 +21,7 @@ import {
 } from "./client.js";
 
 export const MCP_SERVER_NAME = "@boxxji/cerberus-x402-mcp";
-export const MCP_SERVER_VERSION = "1.0.0";
+export const MCP_SERVER_VERSION = "1.1.0";
 export const DEFAULT_MCP_PROTOCOL_VERSION = "2024-11-05";
 
 export interface JsonRpcRequest {

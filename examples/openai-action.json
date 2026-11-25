@@ -1,0 +1,30 @@
+{
+  "schema_version": "v1",
+  "name": "Cerberus x402 Security API",
+  "description": "Pay-per-call Web3 & AI supply-chain security edge API settled in Base (8453) & Arbitrum (42161) USDC ($0.03-$0.15 USDC) via x402 v1 EIP-3009 and PayAI Facilitator.",
+  "openapi_url": "https://x402-cerberus-worker.boxxon.workers.dev/openapi.json",
+  "authentication": {
+    "type": "none",
+    "x402": {
+      "header": "X-PAYMENT",
+      "protocol": "x402-v1",
+      "scheme": "exact",
+      "facilitator": "https://facilitator.payai.network",
+      "discovery_url": "https://x402-cerberus-worker.boxxon.workers.dev/.well-known/x402.json",
+      "llms_txt_url": "https://x402-cerberus-worker.boxxon.workers.dev/llms.txt"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://x402-cerberus-worker.boxxon.workers.dev"
+    }
+  ],
+  "operations": [
+    "getHealth",
+    "getX402DiscoveryManifest",
+    "cerberus-scan-repo",
+    "onchain-token-risk",
+    "sbom-audit",
+    "cerberus-audit-solidity"
+  ]
+}

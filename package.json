@@ -1,6 +1,6 @@
 {
   "name": "@boxxji/cerberus-x402-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Public MCP (Model Context Protocol) server and TypeScript x402 EIP-3009 USDC client SDK for the Cerberus Web3 & AI supply-chain security edge API.",
   "license": "MIT",
   "type": "module",
@@ -15,8 +15,10 @@
   },
   "keywords": [
     "mcp",
+    "mcp-registry",
     "model-context-protocol",
     "x402",
+    "payai",
     "eip-3009",
     "usdc",
     "base",
@@ -52,8 +54,10 @@
   },
   "files": [
     "dist",
+    "examples",
     "README.md",
     "LICENSE",
+    "server.json",
     "smithery.yaml",
     "x402-bazaar.json",
     "llms.txt"
