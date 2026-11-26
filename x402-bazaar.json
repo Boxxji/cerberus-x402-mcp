@@ -1,6 +1,8 @@
 {
   "schema": "https://x402.org/schemas/bazaar-v1.json",
   "x402Version": 1,
+  "supportedVersions": [1, 2],
+  "bazaarDiscoverable": true,
   "id": "boxxji-cerberus-x402",
   "name": "Cerberus x402 Web3 & AI Supply-Chain Security API",
   "version": "1.1.0",
@@ -11,6 +13,7 @@
   "baseUrl": "https://x402-cerberus-worker.boxxon.workers.dev",
   "healthUrl": "https://x402-cerberus-worker.boxxon.workers.dev/health",
   "discoveryUrl": "https://x402-cerberus-worker.boxxon.workers.dev/.well-known/x402.json",
+  "bazaarCatalogUrl": "https://x402-cerberus-worker.boxxon.workers.dev/bazaar.json",
   "openApiUrl": "https://x402-cerberus-worker.boxxon.workers.dev/openapi.json",
   "llmsTxtUrl": "https://x402-cerberus-worker.boxxon.workers.dev/llms.txt",
   "mcp": {
